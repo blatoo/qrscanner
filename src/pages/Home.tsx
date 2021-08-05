@@ -1,3 +1,4 @@
+import { BarcodeScanner } from "@capacitor-community/barcode-scanner"
 import {
   IonButton,
   IonButtons,
@@ -11,49 +12,37 @@ import {
   IonToolbar,
   useIonAlert,
 } from "@ionic/react"
-import { useEffect, useState } from "react"
-import { BarcodeScanner } from "@capacitor-community/barcode-scanner"
 import { scanOutline, stopCircleOutline } from "ionicons/icons"
+import { useEffect, useState } from "react"
 import "./Home.css"
 
 const Home: React.FC = () => {
   const [err, setErr] = useState<string>()
-
-  const [hideBg, setHideBg] = useState(false)
+  const [hideBg, setHideBg] = useState("")
 
   const [present] = useIonAlert()
 
   const startScan = async () => {
-    BarcodeScanner.hideBackground()
-    setHideBg(true)
-    // make background of WebView transparent
-
+    BarcodeScanner.hideBackground() // make background of WebView transparent
+    setHideBg("hideBg")
     const result = await BarcodeScanner.startScan() // start scanning and wait for a result
+    stopScan()
 
     // if the result has content
     if (result.hasContent) {
-      stopScan()
-      present({
-        message: result.content,
-        buttons: [
-          "Cancel",
-          { text: "Ok", handler: (d) => console.log("ok pressed") },
-        ],
-        onDidDismiss: (e) => console.log("did dismiss"),
-      })
-      console.log(result.content) // log the raw scanned content
+      console.log("result is: ", result.content) // log the raw scanned content
+      present(result.content!, [{ text: "Ok", role: "cancel" }])
     }
   }
 
   const stopScan = () => {
     BarcodeScanner.showBackground()
-    setHideBg(false)
+    setHideBg("")
     BarcodeScanner.stopScan()
   }
 
   useEffect(() => {
     const checkPermission = async () => {
-      setErr(undefined)
       try {
         const status = await BarcodeScanner.checkPermission({ force: true })
 
@@ -64,6 +53,7 @@ const Home: React.FC = () => {
         return false
       } catch (error) {
         setErr(error.message)
+        console.log(error.message)
       }
     }
 
@@ -72,36 +62,46 @@ const Home: React.FC = () => {
     return () => {}
   }, [])
 
+  if (err) {
+    return (
+      <IonPage>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>QRScanner</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <IonRow>
+            <IonText color="danger">{err}</IonText>
+          </IonRow>
+        </IonContent>
+      </IonPage>
+    )
+  }
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
           <IonTitle>QRScanner</IonTitle>
-          {hideBg && (
-            <IonButtons slot="end">
-              <IonButton onClick={stopScan} color="danger">
-                <IonIcon icon={stopCircleOutline} slot="start" />
-                Stop Scan
-              </IonButton>
-            </IonButtons>
-          )}
+          <IonButtons slot="end">
+            <IonButton onClick={stopScan} hidden={!hideBg} color="danger">
+              <IonIcon icon={stopCircleOutline} slot="start" />
+              Stop Scan
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
-      <IonContent className={hideBg ? "hideBg" : "ion-padding"}>
-        {err && (
-          <IonRow>
-            {" "}
-            <IonText color="danger">{err}</IonText>
-          </IonRow>
-        )}
-
-        {!!!err && hideBg && <div className="scan-box"></div>}
-        {!!!err && !!!hideBg && (
-          <IonButton className="center-button" onClick={startScan}>
-            <IonIcon icon={scanOutline} slot="start" />
-            Start Scan
-          </IonButton>
-        )}
+      <IonContent className={hideBg}>
+        <IonButton
+          hidden={!!hideBg}
+          className="center-scan-button"
+          onClick={startScan}
+        >
+          <IonIcon icon={scanOutline} slot="start" />
+          Start Scan
+        </IonButton>
+        <div className="scan-box" hidden={!hideBg}></div>
       </IonContent>
     </IonPage>
   )
